@@ -1,0 +1,11 @@
+appId: com.vishguard.ai
+---
+- launchApp:
+    clearState: true
+
+- tapOn: "ACTIVAR PROTECCIÓN"
+- inputText: "value"
+- tapOn: "ANALIZAR CON IA"
+- assertVisible:
+    id: "overlayContainer"
+

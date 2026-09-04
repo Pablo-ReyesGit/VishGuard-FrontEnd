@@ -1,0 +1,11 @@
+appId: com.vishguard.ai # Reemplaza por tu applicationId
+---
+- launchApp
+
+# Ejemplo de interacciones básicas:
+- tapOn: "ACTIVAR PROTECCION"
+- inputText: "targeta de credito"
+- tapOn: "Analisis con IA"
+
+# Comprobación de UI:
+- assertVisible: "Peligro"
