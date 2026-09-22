@@ -12,6 +12,29 @@
         android:gravity="center_horizontal"
         android:padding="24dp">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="end">
+
+            <Button
+                android:id="@+id/btnLogout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Cerrar sesión"
+                android:textSize="12sp"
+                android:textColor="#ECEFF1"
+                android:backgroundTint="#37474F"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp" />
+
+        </LinearLayout>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -19,7 +42,7 @@
             android:textColor="#FFFFFF"
             android:textSize="28sp"
             android:textStyle="bold"
-            android:layout_marginTop="20dp" />
+            android:layout_marginTop="8dp" />
 
         <TextView
             android:layout_width="wrap_content"

@@ -22,6 +22,7 @@ import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
 import com.vishguard.ai.R
+import com.vishguard.ai.data.local.TokenManager
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -46,6 +47,9 @@ class OverlayService : Service() {
     private val gson = Gson()
     private val TAG = "VishGuardHTTP"
 
+    // Mismo TokenManager que usa el login, para adjuntar el JWT en esta petición
+    private lateinit var tokenManager: TokenManager
+
     companion object {
         const val EXTRA_TEXTO = "extra_texto_llamada"
     }
@@ -54,6 +58,7 @@ class OverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        tokenManager = TokenManager(applicationContext)
         Log.d(TAG, "🚀 [ANDROID LOG]: Servicio OverlayService creado correctamente.")
         startForegroundServiceNotification()
         setupOverlayWindow()
@@ -81,15 +86,13 @@ class OverlayService : Service() {
 
     private fun startForegroundServiceNotification() {
         val channelId = "vishguard_channel"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "VishGuard Protection Service",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            channelId,
+            "VishGuard Protection Service",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
 
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("VishGuard AI Activo")
@@ -140,9 +143,19 @@ class OverlayService : Service() {
 
     // 🚀 Petición HTTP POST con Logs hacia FastAPI
     fun enviarTextoParaAnalizar(textoLlamada: String) {
-        val urlServer = "http://localhost:8000/analizar-llamada"
+        val urlServer = "http://10.0.2.2:8000/analizar-llamada"
         Log.i(TAG, "🌐 [ANDROID LOG]: Conectando a $urlServer...")
         Log.i(TAG, "📤 [ENVIANDO TEXTO]: \"$textoLlamada\"")
+
+        val token = tokenManager.getToken()
+        if (token == null) {
+            Log.e(TAG, "🔒 [ANDROID LOG ERROR]: No hay sesión activa, no se puede analizar sin loguearse.")
+            Handler(Looper.getMainLooper()).post {
+                tvShieldStatus.text = "🔒 Sesión no iniciada"
+                tvRecommendation.text = "Inicia sesión en la app para activar el análisis."
+            }
+            return
+        }
 
         // Feedback inmediato en pantalla mientras responde la IA
         Handler(Looper.getMainLooper()).post {
@@ -156,6 +169,7 @@ class OverlayService : Service() {
 
         val request = Request.Builder()
             .url(urlServer)
+            .addHeader("Authorization", "Bearer $token")
             .post(body)
             .build()
 
@@ -166,6 +180,18 @@ class OverlayService : Service() {
 
             override fun onResponse(call: Call, response: Response) {
                 val responseData = response.body?.string()
+
+                if (response.code == 401 || response.code == 403) {
+                    // Token vencido o inválido -> se limpia para forzar un login nuevo la próxima vez
+                    Log.e(TAG, "🔒 [ANDROID LOG ERROR]: Token rechazado (${response.code}). Sesión expirada.")
+                    tokenManager.clearToken()
+                    Handler(Looper.getMainLooper()).post {
+                        tvShieldStatus.text = "🔒 Sesión expirada"
+                        tvRecommendation.text = "Vuelve a iniciar sesión en la app."
+                    }
+                    return
+                }
+
                 if (response.isSuccessful && responseData != null) {
                     Log.d(TAG, "✅ [ANDROID LOG]: ¡Conexión Exitosa con la PC! Respuesta recibida:")
                     Log.d(TAG, "📩 [JSON RECIBIDO]: $responseData")

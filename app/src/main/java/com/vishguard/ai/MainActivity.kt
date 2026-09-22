@@ -10,7 +10,9 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.vishguard.ai.data.local.TokenManager
 import com.vishguard.ai.services.OverlayService
+import com.vishguard.ai.ui.login.LoginActivity
 
 class MainActivity : AppCompatActivity() {
 
@@ -19,6 +21,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvStatusInfo: TextView
     private lateinit var etFraseSimulada: EditText
     private lateinit var btnEnviarFrase: Button
+    private lateinit var btnLogout: Button
+    private lateinit var tokenManager: TokenManager
 
     companion object {
         private const val OVERLAY_PERMISSION_REQ_CODE = 1234
@@ -28,10 +32,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        tokenManager = TokenManager(this)
+
         btnToggleService = findViewById(R.id.btnToggleService)
         tvStatusInfo = findViewById(R.id.tvStatusInfo)
         etFraseSimulada = findViewById(R.id.etFraseSimulada)
         btnEnviarFrase = findViewById(R.id.btnEnviarFrase)
+        btnLogout = findViewById(R.id.btnLogout)
 
         btnToggleService.setOnClickListener {
             if (checkOverlayPermission()) {
@@ -57,6 +64,26 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Escribe una frase antes de analizar", Toast.LENGTH_SHORT).show()
             }
         }
+
+        btnLogout.setOnClickListener {
+            cerrarSesion()
+        }
+    }
+
+    private fun cerrarSesion() {
+        // Si la protección estaba activa, se detiene junto con la sesión
+        if (isServiceRunning) {
+            stopService(Intent(this, OverlayService::class.java))
+            isServiceRunning = false
+        }
+
+        tokenManager.clearToken()
+
+        val intent = Intent(this, LoginActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        startActivity(intent)
+        finish()
     }
 
     private fun enviarTextoAlServicio(texto: String) {
