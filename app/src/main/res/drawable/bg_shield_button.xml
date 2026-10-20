@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Capa 1: Sombra exterior suave -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#201E88E5" />
+        </shape>
+    </item>
+
+    <!-- Capa 2: Cuerpo central con degradado e iluminación interna -->
+    <item
+        android:bottom="3dp"
+        android:left="3dp"
+        android:right="3dp"
+        android:top="3dp">
+        <shape android:shape="oval">
+            <gradient
+                android:angle="270"
+                android:startColor="#1E88E5"
+                android:centerColor="#1565C0"
+                android:endColor="#0D47A1"
+                android:type="linear" />
+            <stroke
+                android:width="2.5dp"
+                android:color="#64B5F6" />
+        </shape>
+    </item>
+</layer-list>

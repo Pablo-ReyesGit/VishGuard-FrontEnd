@@ -1,4 +1,12 @@
 <resources>
     <string name="app_name">VishGuard AI</string>
+    <plurals name="analyses_count">
+        <item quantity="one">%d análisis</item>
+        <item quantity="other">%d análisis</item>
+    </plurals>
+    <plurals name="threats_count">
+        <item quantity="one">%d amenaza</item>
+        <item quantity="other">%d amenazas</item>
+    </plurals>
     <string name="fgs_justification">VishGuard provides real-time protection against vishing by analyzing call metadata and showing a security overlay.</string>
 </resources>
