@@ -88,22 +88,32 @@ class MainActivity : AppCompatActivity() {
 
         btnToggleService.setOnClickListener {
             animarPulsacionBoton()
-            if (checkOverlayPermission()) {
-                toggleOverlayService()
+            if (isServiceRunning) {
+                detenerOverlayService()
             } else {
-                requestOverlayPermission()
+                verificarPermisosYIniciar()
             }
         }
 
         btnSettings.setOnClickListener { view ->
             SoundFeedbackHelper.playSubtleTapSound(view)
-            Toast.makeText(this, "VishGuard AI: Motor Gemini Flash Activo", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "VishGuard AI: Escuchando backend Twilio", Toast.LENGTH_SHORT).show()
         }
 
         cardBottomOptions.setOnClickListener { view ->
             SoundFeedbackHelper.playSubtleTapSound(view)
             mostrarBottomSheetOpciones()
         }
+    }
+
+    private fun verificarPermisosYIniciar() {
+        // Únicamente requiere permiso de Overlay (SYSTEM_ALERT_WINDOW)
+        if (!checkOverlayPermission()) {
+            requestOverlayPermission()
+            return
+        }
+
+        iniciarOverlayService()
     }
 
     private fun mostrarBottomSheetOpciones() {
@@ -114,18 +124,18 @@ class MainActivity : AppCompatActivity() {
         val cardSimular = sheetView.findViewById<View>(R.id.cardOptionSimular)
         val cardHistorial = sheetView.findViewById<View>(R.id.cardOptionHistorial)
 
-        cardSimular?.setOnClickListener { view ->
-            SoundFeedbackHelper.playSubtleTapSound(view)
+        cardSimular?.setOnClickListener {
+            SoundFeedbackHelper.playSubtleTapSound(it)
             bottomSheet.dismiss()
             mostrarDialogoSimulacion()
         }
 
-        cardHistorial?.setOnClickListener { view ->
-            SoundFeedbackHelper.playSubtleTapSound(view)
+        cardHistorial?.setOnClickListener {
+            SoundFeedbackHelper.playSubtleTapSound(it)
             bottomSheet.dismiss()
             Toast.makeText(
                 this,
-                "Auditoría: $totalSesionesCount llamadas evaluadas hoy ($amenazasBloqueadasCount amenazas registradas)",
+                "Auditoría: $totalSesionesCount alertas evaluadas ($amenazasBloqueadasCount amenazas)",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -145,13 +155,13 @@ class MainActivity : AppCompatActivity() {
         val btnCancelar = dialog.findViewById<Button>(R.id.btnDialogCancelar)
         val btnEnviar = dialog.findViewById<Button>(R.id.btnDialogEnviar)
 
-        btnCancelar?.setOnClickListener { view ->
-            SoundFeedbackHelper.playSubtleTapSound(view)
+        btnCancelar?.setOnClickListener {
+            SoundFeedbackHelper.playSubtleTapSound(it)
             dialog.dismiss()
         }
 
-        btnEnviar?.setOnClickListener { view ->
-            SoundFeedbackHelper.playSubtleTapSound(view)
+        btnEnviar?.setOnClickListener {
+            SoundFeedbackHelper.playSubtleTapSound(it)
             val frase = etFrase?.text.toString().trim()
             if (!isServiceRunning) {
                 Toast.makeText(this, "Activa primero la protección central", Toast.LENGTH_SHORT).show()
@@ -159,14 +169,19 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (frase.isNotEmpty()) {
-                // Actualizar métricas locales en vivo
                 totalSesionesCount++
                 tvTotalCallsMetric.text = "$totalSesionesCount Analizadas"
 
                 val intent = Intent(this, OverlayService::class.java).apply {
                     putExtra(OverlayService.EXTRA_TEXTO, frase)
                 }
-                startService(intent)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(intent)
+                } else {
+                    startService(intent)
+                }
+
                 dialog.dismiss()
             } else {
                 Toast.makeText(this, "Escribe una frase antes de analizar", Toast.LENGTH_SHORT).show()
@@ -188,7 +203,6 @@ class MainActivity : AppCompatActivity() {
             interpolator = AccelerateDecelerateInterpolator()
         }
 
-        // Animación de pulso continuo (respiración) para el punto de estado
         dotPulseAnimator = ObjectAnimator.ofFloat(viewStatusDot, View.ALPHA, 1.0f, 0.2f).apply {
             duration = 900
             repeatCount = ValueAnimator.INFINITE
@@ -240,66 +254,79 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun toggleOverlayService() {
+    private fun iniciarOverlayService() {
         val intent = Intent(this, OverlayService::class.java)
 
-        if (!isServiceRunning) {
-            SoundFeedbackHelper.playActivationSound(this)
+        SoundFeedbackHelper.playActivationSound(this)
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent)
-            } else {
-                startService(intent)
-            }
-            isServiceRunning = true
-
-            tvBtnAction.text = "DESACTIVAR"
-            tvBtnSub.text = "MONITOREANDO"
-            tvBtnSub.setTextColor(Color.parseColor("#EF9A9A"))
-            tvStatusInfo.text = "Estado: Monitoreando llamadas activamente"
-            tvStatusInfo.setTextColor(Color.parseColor("#4CAF50"))
-
-            viewStatusDot.setBackgroundColor(Color.parseColor("#4CAF50"))
-            dotPulseAnimator?.start()
-
-            viewGlowRing.visibility = View.VISIBLE
-            pulseAnimator?.start()
-
-            viewOrbitLight.visibility = View.VISIBLE
-            orbitRotationAnimator?.start()
-
-            animarGiroEscudo()
-            shieldSpinHandler.postDelayed(shieldSpinRunnable, shieldSpinInterval)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
         } else {
-            SoundFeedbackHelper.playDeactivationSound(this)
+            startService(intent)
+        }
+        isServiceRunning = true
 
-            stopService(intent)
-            isServiceRunning = false
+        tvBtnAction.text = "DESACTIVAR"
+        tvBtnSub.text = "MONITOREANDO"
+        tvBtnSub.setTextColor(Color.parseColor("#EF9A9A"))
+        tvStatusInfo.text = "Estado: Escuchando eventos del servidor"
+        tvStatusInfo.setTextColor(Color.parseColor("#4CAF50"))
 
-            shieldSpinHandler.removeCallbacks(shieldSpinRunnable)
+        viewStatusDot.setBackgroundColor(Color.parseColor("#4CAF50"))
+        dotPulseAnimator?.start()
 
-            tvShieldIcon.rotationY = 0f
-            tvShieldIcon.scaleX = 1f
-            tvShieldIcon.scaleY = 1f
+        viewGlowRing.visibility = View.VISIBLE
+        pulseAnimator?.start()
 
-            tvBtnAction.text = "ACTIVAR"
-            tvBtnSub.text = "PROTECCIÓN"
-            tvBtnSub.setTextColor(Color.parseColor("#90CAF9"))
-            tvStatusInfo.text = "Estado: Inactivo"
-            tvStatusInfo.setTextColor(Color.parseColor("#546E7A"))
+        viewOrbitLight.visibility = View.VISIBLE
+        orbitRotationAnimator?.start()
 
-            dotPulseAnimator?.cancel()
-            viewStatusDot.alpha = 1.0f
-            viewStatusDot.setBackgroundColor(Color.parseColor("#546E7A"))
+        animarGiroEscudo()
+        shieldSpinHandler.postDelayed(shieldSpinRunnable, shieldSpinInterval)
+    }
 
-            pulseAnimator?.cancel()
-            viewGlowRing.scaleX = 1f
-            viewGlowRing.scaleY = 1f
-            viewGlowRing.visibility = View.INVISIBLE
+    private fun detenerOverlayService() {
+        val intent = Intent(this, OverlayService::class.java)
+        SoundFeedbackHelper.playDeactivationSound(this)
 
-            orbitRotationAnimator?.cancel()
-            viewOrbitLight.rotation = 0f
-            viewOrbitLight.visibility = View.INVISIBLE
+        stopService(intent)
+        isServiceRunning = false
+
+        shieldSpinHandler.removeCallbacks(shieldSpinRunnable)
+
+        tvShieldIcon.rotationY = 0f
+        tvShieldIcon.scaleX = 1f
+        tvShieldIcon.scaleY = 1f
+
+        tvBtnAction.text = "ACTIVAR"
+        tvBtnSub.text = "PROTECCIÓN"
+        tvBtnSub.setTextColor(Color.parseColor("#90CAF9"))
+        tvStatusInfo.text = "Estado: Inactivo"
+        tvStatusInfo.setTextColor(Color.parseColor("#546E7A"))
+
+        dotPulseAnimator?.cancel()
+        viewStatusDot.alpha = 1.0f
+        viewStatusDot.setBackgroundColor(Color.parseColor("#546E7A"))
+
+        pulseAnimator?.cancel()
+        viewGlowRing.scaleX = 1f
+        viewGlowRing.scaleY = 1f
+        viewGlowRing.visibility = View.INVISIBLE
+
+        orbitRotationAnimator?.cancel()
+        viewOrbitLight.rotation = 0f
+        viewOrbitLight.visibility = View.INVISIBLE
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == OVERLAY_PERMISSION_REQ_CODE) {
+            if (checkOverlayPermission()) {
+                verificarPermisosYIniciar()
+            } else {
+                Toast.makeText(this, "Permiso de ventana flotante denegado.", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -319,6 +346,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestOverlayPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Toast.makeText(
+                this,
+                "Por favor, concede el permiso para mostrar la alerta sobre otras aplicaciones.",
+                Toast.LENGTH_LONG
+            ).show()
+
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")
